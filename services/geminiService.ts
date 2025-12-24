@@ -195,11 +195,16 @@ export const addTechToImage = async (baseImageFile: File, techImageFile: File): 
 **CRITICAL RULES:**
 1. **Background Integrity:** You MUST use the environment, room, counter, and appliances from the FIRST image as the background. Do NOT use the background from the second image.
 2. **Subject Extraction:** Extract ONLY the person (technician) from the SECOND image. Discard everything else from that image.
-3. **Realistic Placement:** Place the technician in a logical position (e.g., standing next to the appliance) within the FIRST image's scene.
-4. **Scale & Perspective:** Match the technician's size and perspective to the scale of the room in the FIRST image.
-5. **Seamless Blending:** Match the lighting, shadows, and color temperature of the FIRST image so the technician looks like they were actually there.
+3. **Realistic Placement:** Place the technician STANDING NEXT to the appliance (or in the best logical position near it). The technician should be positioned prominently, appearing to interact with or inspect the appliance.
+4. **Scale & Sizing:** 
+   - The technician should be PROMINENT in the scene - NOT small or shrunk down.
+   - You are ALLOWED and ENCOURAGED to upscale the technician to an appropriate size.
+   - The technician should occupy a reasonable proportion of the frame (approximately 30-50% of the image height).
+   - Ensure the technician's size makes sense for a real person standing in that room.
+5. **Perspective Matching:** Match the perspective angle of the room, so the technician appears natural in the 3D space.
+6. **Seamless Blending:** Match the lighting, shadows, and color temperature of the FIRST image so the technician looks like they were actually there.
 
-The final output MUST be the FIRST image with the technician from the SECOND image realistically added into it.`
+The final output MUST be the FIRST image with the technician from the SECOND image realistically added into it, positioned NEXT TO the appliance in a natural, prominent way.`
           },
           {
             // Background scene
