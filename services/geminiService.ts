@@ -190,16 +190,29 @@ export const addTechToImage = async (baseImageFile: File, techImageFile: File): 
       {
         parts: [
           {
-            text: `You are an expert photo editor. Extract the person from the SECOND image and add them to the FIRST image.
+            text: `You are a professional photo compositor specializing in realistic image synthesis. Your task: seamlessly add the technician from IMAGE 2 into the scene from IMAGE 1.
 
-**Instructions:**
-- **IMPORTANT - Zoom Out if Needed:** If the FIRST image is zoomed in very close to the appliance, you MUST first zoom out or expand the scene to show more of the room (more floor space, more surrounding area). This creates proper space for the person.
-- Keep the background, room, and appliances from the FIRST image - just expand the view if it's too tight
-- Extract only the person from the SECOND image
-- Position the person naturally next to the appliance (standing or kneeling)
-- The person should be a natural, realistic size - not tiny or cramped
-- Make it look realistic by matching lighting, shadows, and colors
-- The person should look like they were actually there in the original scene`
+**Step 1 - Analyze & Prepare:**
+- If IMAGE 1 is zoomed too close to the appliance, expand the scene outward to show more room context (more floor, walls, surrounding area)
+- Preserve the appliance and background style exactly - only widen the frame
+
+**Step 2 - Extract Subject:**
+- Cleanly extract ONLY the person from IMAGE 2
+- Remove all background, keeping precise edges with no artifacts or halos
+- Preserve the person's pose, clothing details, and natural proportions
+
+**Step 3 - Compose & Position:**
+- Place the person naturally beside or in front of the appliance (standing or kneeling as appropriate)
+- Ensure the person is appropriately sized - they should be prominent, not tiny
+- The appliance should remain a key element in the composition
+
+**Step 4 - Blend Realistically:**
+- Match perspective and viewing angle of IMAGE 1
+- Adjust lighting direction, intensity, and color temperature to match IMAGE 1
+- Add natural shadows where the person meets the floor/surfaces
+- Ensure color grading is consistent across the entire image
+
+**Final Result:** A single, photorealistic image where the technician appears to have been in the original scene, positioned naturally next to the appliance with perfect lighting and perspective integration.`
           },
           {
             // Background scene
