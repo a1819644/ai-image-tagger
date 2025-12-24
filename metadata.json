@@ -1,0 +1,7 @@
+{
+  "name": "AI Image Tagger",
+  "description": "An application that uses the Gemini API to automatically generate metadata (name, description, tags) for uploaded images. Users can then download their original image with the generated filename.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
