@@ -193,9 +193,11 @@ export const addTechToImage = async (baseImageFile: File, techImageFile: File): 
             text: `You are an expert photo editor. Extract the person from the SECOND image and add them to the FIRST image.
 
 **Instructions:**
-- Keep the background, room, and appliances from the FIRST image exactly as they are
+- **IMPORTANT - Zoom Out if Needed:** If the FIRST image is zoomed in very close to the appliance, you MUST first zoom out or expand the scene to show more of the room (more floor space, more surrounding area). This creates proper space for the person.
+- Keep the background, room, and appliances from the FIRST image - just expand the view if it's too tight
 - Extract only the person from the SECOND image
-- Position the person naturally next to the appliance
+- Position the person naturally next to the appliance (standing or kneeling)
+- The person should be a natural, realistic size - not tiny or cramped
 - Make it look realistic by matching lighting, shadows, and colors
 - The person should look like they were actually there in the original scene`
           },
