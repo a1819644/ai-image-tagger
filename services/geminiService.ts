@@ -199,11 +199,11 @@ export const addTechToImage = async (baseImageFile: File, techImageFile: File): 
 **Step 2 - Extract Subject:**
 - Cleanly extract ONLY the person from IMAGE 2
 - Remove all background, keeping precise edges with no artifacts or halos
-- Preserve the person's pose, clothing details, and natural proportions
+- Preserve the person's, clothing details, and natural proportions
 
 **Step 3 - Compose & Position:**
 - Place the person naturally beside or in front of the appliance (standing or kneeling as appropriate)
-- Ensure the person is appropriately sized - they should be prominent, not tiny
+- Ensure the person is appropriately sized - they should be prominent, not tiny or small
 - The appliance should remain a key element in the composition
 
 **Step 4 - Blend Realistically:**

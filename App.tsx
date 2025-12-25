@@ -335,8 +335,7 @@ const App: React.FC = () => {
                 : { ...currentLocation };
 
             try {
-                // Validate dimensions before adding to processed images
-                await validateImageDimensions(file, 516, 516); // Assuming 516px for both for now
+                // No validation - accept all image sizes
                 newImages.push({
                     id: `${file.name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     file,
@@ -527,12 +526,7 @@ const App: React.FC = () => {
     const handleTechAdderFileChange = async (file: File | null, imageNumber: 1 | 2) => {
         if (!file) return;
         try {
-            // Base image needs to be decent quality, but tech cutout can be smaller
-            if (imageNumber === 1) {
-                await validateImageDimensions(file, 300, 300);
-            } else {
-                await validateImageDimensions(file, 200, 200);
-            }
+            // No validation - accept all image sizes
             const convertedFile = await handleFileConversion(file);
             const preview = URL.createObjectURL(convertedFile);
             if (imageNumber === 1) {
@@ -568,7 +562,7 @@ const App: React.FC = () => {
 
         for (const file of files) {
             try {
-                await validateImageDimensions(file, 516, 516); // Apply validation
+                // No validation - accept all image sizes
                 const convertedFile = await handleFileConversion(file);
                 validatedFiles.push(convertedFile);
                 validatedPreviews.push(URL.createObjectURL(convertedFile));
@@ -604,7 +598,7 @@ const App: React.FC = () => {
         });
 
         try {
-            await validateImageDimensions(techAdderBaseImage, 300, 300);
+            // No validation - accept all image sizes
             
             // Automatically upscale the tech image to a standard height for better quality
             const upscaledTechBlob = await upscaleImageToHeight(techAdderTechImage, 1024);
@@ -702,10 +696,7 @@ const App: React.FC = () => {
                 fileName = 'composed_image.jpeg';
             }
 
-            // Validate the final blob dimensions before proceeding
-            const tempFileForValidation = new File([blob], fileName, { type: fileType });
-            await validateImageDimensions(tempFileForValidation, 300, 300);
-
+            // No validation - accept all image sizes
             const file = new File([blob], fileName, { type: fileType });
             
             const locationToUse = options.randomizeLocation 
