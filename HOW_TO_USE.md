@@ -1,4 +1,5 @@
 # How to Use Asset Master 3.0
+![Asset Master 3.0 Demo](assests/ai-image-tagger.gif)
 
 This guide will walk you through the features of the Asset Master application.
 
