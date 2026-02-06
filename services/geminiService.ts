@@ -2,11 +2,16 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { Metadata } from '../types';
 
-const getGenAIClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY environment variable not set.");
+const getApiKey = (): string => {
+  const key = localStorage.getItem('GEMINI_API_KEY');
+  if (!key) {
+    throw new Error('API key not found. Please configure your Gemini API key.');
   }
+  return key;
+};
+
+const initializeGenAI = () => {
+  const apiKey = getApiKey();
   // The SDK doesn't easily support baseUrl in this version without private hacks
   // We will use a custom helper for the API calls that need the proxy.
   return new GoogleGenAI({ apiKey });
@@ -14,10 +19,16 @@ const getGenAIClient = () => {
 
 // Helper for calling Gemini API via proxy to avoid CORS
 const callGeminiApi = async (model: string, contents: any, config: any = {}) => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
+
+  // Debug: Log API key presence (not the actual key for security)
+  console.log('[Gemini Service] API Key loaded:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING');
+
   // In local development, we use the proxy defined in vite.config.ts
   const baseUrl = '/api-proxy';
   const url = `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  console.log('[Gemini Service] Calling API:', model);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -32,6 +43,7 @@ const callGeminiApi = async (model: string, contents: any, config: any = {}) => 
 
   if (!response.ok) {
     const error = await response.json();
+    console.error('[Gemini Service] API Error:', error);
     throw new Error(error.error?.message || 'API request failed');
   }
 
@@ -256,63 +268,4 @@ export const addTechToImage = async (baseImageFile: File, techImageFile: File): 
     throw new Error("An unknown error occurred while adding tech to the image.");
   }
 };
-
-export const composeImages = async (images: File[], layoutPrompt: string): Promise<{ base64: string, mimeType: string }> => {
-  try {
-    const imageParts = await Promise.all(
-      images.map(async (file) => {
-        const base64Image = await fileToBase64(file);
-        return {
-          inlineData: {
-            data: base64Image,
-            mimeType: file.type,
-          },
-        };
-      })
-    );
-
-    const data = await callGeminiApi('gemini-2.5-flash-image', [
-      {
-        parts: [
-          {
-            text: `You are an expert graphic designer. Your task is to combine the following images into a single, cohesive composition based on the user's layout request.
-
-Layout Request: "${layoutPrompt}"
-
-**Execution:**
-- Arrange the images exactly as requested.
-- Ensure the final composition is well-balanced and aesthetically pleasing.
-- Maintain the original quality and aspect ratio of each individual image within the composition.
-- The output should be a single image file.`,
-          },
-          ...imageParts,
-        ],
-      },
-    ], {
-      responseModalities: [Modality.IMAGE]
-    });
-
-    if (!data.candidates?.[0]?.content?.parts) {
-      const reason = data.candidates?.[0]?.finishReason;
-      if (reason === 'SAFETY') throw new Error("Composition blocked by safety filters.");
-      throw new Error(`Generated image data not found. Reason: ${reason || 'Unknown'}`);
-    }
-
-    for (const part of data.candidates[0].content.parts) {
-      if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
-        return { base64: part.inlineData.data, mimeType: part.inlineData.mimeType };
-      }
-    }
-
-    throw new Error("Generated image data not found in API response.");
-
-  } catch (error) {
-    console.error("Error composing images:", error);
-    if (error instanceof Error) {
-      throw new Error(`Failed to compose images: ${error.message}`);
-    }
-    throw new Error("An unknown error occurred while composing the images.");
-  }
-};
-
 

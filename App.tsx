@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateImageMetadata, enhanceImage, addTechToImage, composeImages } from './services/geminiService';
+import { generateImageMetadata, enhanceImage, addTechToImage } from './services/geminiService';
 import { embedMetadata, resizeImage, upscaleImageToHeight, convertBlobToJpegDataURL, getImageDimensions, validateImageDimensions } from './services/imageProcessor';
-import type { Metadata, ProcessingOptions, GeoLocation } from './types';
+import type { Metadata, ProcessingOptions, GeoLocation, CompanyInfo, TagCategory } from './types';
 
 // @ts-ignore
 import JSZip from 'jszip';
 
 
-type AppMode = 'tagger' | 'techAdder' | 'composer';
+type AppMode = 'tagger' | 'techAdder';
 type ImageStatus = 'pending' | 'generating' | 'enhancing' | 'embedding' | 'ready' | 'error';
 
 interface ProcessedImage {
@@ -25,18 +25,73 @@ interface ProcessedImage {
   appliedLocation: GeoLocation;
 }
 
-const PRESET_LOCATIONS: GeoLocation[] = [
-    { name: 'Melbourne (CBD)', lat: -37.814000, lng: 144.963320 },
-    { name: 'Richmond', lat: -37.8220, lng: 144.9930 },
-    { name: 'Werribee', lat: -37.9000, lng: 144.6400 },
-    { name: 'Preston', lat: -37.7430, lng: 145.0000 },
-    { name: 'Dandenong', lat: -37.9820, lng: 145.2230 },
-    { name: 'Footscray', lat: -37.8010, lng: 144.9020 },
-    { name: 'Box Hill', lat: -37.8190, lng: 145.1220 },
-    { name: 'Frankston', lat: -38.1430, lng: 145.1270 },
-    { name: 'St Kilda', lat: -37.8640, lng: 144.9820 },
-    { name: 'Brunswick', lat: -37.7670, lng: 144.9590 },
+const ALL_LOCATIONS: GeoLocation[] = [
+    // Melbourne CBD & Inner Suburbs
+    { name: 'Melbourne CBD', lat: -37.814000, lng: 144.963320, address: 'Melbourne, VIC' },
+    { name: 'Richmond', lat: -37.8220, lng: 144.9930, address: 'Richmond, VIC' },
+    { name: 'Werribee', lat: -37.9000, lng: 144.6400, address: 'Werribee, VIC' },
+    { name: 'Preston', lat: -37.7430, lng: 145.0000, address: 'Preston, VIC' },
+    { name: 'Dandenong', lat: -37.9820, lng: 145.2230, address: 'Dandenong, VIC' },
+    { name: 'Footscray', lat: -37.8010, lng: 144.9020, address: 'Footscray, VIC' },
+    { name: 'Box Hill', lat: -37.8190, lng: 145.1220, address: 'Box Hill, VIC' },
+    { name: 'Frankston', lat: -38.1430, lng: 145.1270, address: 'Frankston, VIC' },
+    { name: 'St Kilda', lat: -37.8640, lng: 144.9820, address: 'St Kilda, VIC' },
+    { name: 'Brunswick', lat: -37.7670, lng: 144.9590, address: 'Brunswick, VIC' },
+    
+    // More Melbourne Suburbs
+    { name: 'Southbank', lat: -37.8251, lng: 144.9634, address: 'Southbank, VIC' },
+    { name: 'Carlton', lat: -37.8028, lng: 144.9678, address: 'Carlton, VIC' },
+    { name: 'Fitzroy', lat: -37.7989, lng: 144.9789, address: 'Fitzroy, VIC' },
+    { name: 'Collingwood', lat: -37.8054, lng: 144.9896, address: 'Collingwood, VIC' },
+    { name: 'South Yarra', lat: -37.8396, lng: 144.9896, address: 'South Yarra, VIC' },
+    { name: 'Prahran', lat: -37.8505, lng: 145.0010, address: 'Prahran, VIC' },
+    { name: 'Toorak', lat: -37.8394, lng: 145.0181, address: 'Toorak, VIC' },
+    { name: 'Brighton', lat: -37.9089, lng: 145.0008, address: 'Brighton, VIC' },
+    { name: 'Williamstown', lat: -37.8637, lng: 144.9003, address: 'Williamstown, VIC' },
+    { name: 'Newport', lat: -37.8451, lng: 144.8917, address: 'Newport, VIC' },
+    
+    // Eastern Suburbs
+    { name: 'Glen Waverley', lat: -37.8797, lng: 145.1636, address: 'Glen Waverley, VIC' },
+    { name: 'Ringwood', lat: -37.8145, lng: 145.2270, address: 'Ringwood, VIC' },
+    { name: 'Blackburn', lat: -37.8166, lng: 145.1492, address: 'Blackburn, VIC' },
+    { name: 'Doncaster', lat: -37.7810, lng: 145.1246, address: 'Doncaster, VIC' },
+    { name: 'Camberwell', lat: -37.8263, lng: 145.0583, address: 'Camberwell, VIC' },
+    { name: 'Hawthorn', lat: -37.8220, lng: 145.0321, address: 'Hawthorn, VIC' },
+    
+    // Western Suburbs
+    { name: 'Sunshine', lat: -37.7836, lng: 144.8347, address: 'Sunshine, VIC' },
+    { name: 'Altona', lat: -37.8692, lng: 144.8286, address: 'Altona, VIC' },
+    { name: 'Point Cook', lat: -37.9152, lng: 144.7500, address: 'Point Cook, VIC' },
+    { name: 'Hoppers Crossing', lat: -37.8791, lng: 144.7019, address: 'Hoppers Crossing, VIC' },
+    
+    // Northern Suburbs
+    { name: 'Craigieburn', lat: -37.5978, lng: 144.9463, address: 'Craigieburn, VIC' },
+    { name: 'Epping', lat: -37.6502, lng: 145.0235, address: 'Epping, VIC' },
+    { name: 'Thomastown', lat: -37.6835, lng: 145.0136, address: 'Thomastown, VIC' },
+    { name: 'Reservoir', lat: -37.7178, lng: 145.0085, address: 'Reservoir, VIC' },
+    { name: 'Coburg', lat: -37.7433, lng: 144.9642, address: 'Coburg, VIC' },
+    
+    // Southern Suburbs
+    { name: 'Cheltenham', lat: -37.9653, lng: 145.0539, address: 'Cheltenham, VIC' },
+    { name: 'Moorabbin', lat: -37.9360, lng: 145.0363, address: 'Moorabbin, VIC' },
+    { name: 'Bentleigh', lat: -37.9190, lng: 145.0362, address: 'Bentleigh, VIC' },
+    { name: 'Mordialloc', lat: -38.0024, lng: 145.0896, address: 'Mordialloc, VIC' },
+    
+    // Bayside & Peninsula
+    { name: 'Mornington', lat: -38.2184, lng: 145.0386, address: 'Mornington, VIC' },
+    { name: 'Mount Eliza', lat: -38.1889, lng: 145.0920, address: 'Mount Eliza, VIC' },
+    { name: 'Rosebud', lat: -38.3598, lng: 144.9034, address: 'Rosebud, VIC' },
+    { name: 'Sorrento', lat: -38.3421, lng: 144.7448, address: 'Sorrento, VIC' },
+    
+    // Geelong Region
+    { name: 'Geelong', lat: -38.1499, lng: 144.3617, address: 'Geelong, VIC' },
+    { name: 'Geelong West', lat: -38.1399, lng: 144.3467, address: 'Geelong West, VIC' },
+    { name: 'Belmont', lat: -38.1767, lng: 144.3417, address: 'Belmont, VIC' },
+    { name: 'Ocean Grove', lat: -38.2667, lng: 144.5167, address: 'Ocean Grove, VIC' },
 ];
+
+const DEFAULT_PRESET_LOCATIONS: GeoLocation[] = ALL_LOCATIONS.slice(0, 10);
+
 
 // --- Helper Functions ---
 
@@ -79,27 +134,69 @@ const handleFileConversion = async (file: File): Promise<File> => {
 
 // --- Helper Components ---
 
-const ApiKeyOverlay: React.FC<{onSelectKey: () => void}> = ({onSelectKey}) => (
-    <div className="fixed inset-0 bg-slate-900 bg-opacity-95 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-lg bg-slate-800 p-10 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden">
-             <div className="absolute -top-10 -right-10 w-40 h-40 bg-cyan-600/10 blur-3xl"></div>
-            <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-20 w-20 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-            </svg>
-            <h2 className="mt-6 text-3xl font-black text-white uppercase tracking-tighter italic">AI KEY REQUIRED</h2>
-            <p className="mt-4 text-slate-400 text-sm font-medium leading-relaxed">
-                Asset Master uses Gemini 3.0 Pro for high-end image synthesis. 
-                Please select a paid API key from a billing-enabled project to begin.
-            </p>
-            <button onClick={onSelectKey} className="mt-8 w-full bg-cyan-600 hover:bg-cyan-500 text-white font-black py-4 px-6 rounded-2xl transition-all shadow-xl shadow-cyan-900/30 uppercase tracking-widest text-sm active:scale-95">
-                Select API Key
-            </button>
-            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="mt-4 block text-[10px] text-slate-500 uppercase tracking-widest hover:text-cyan-400 transition-colors">
-                Learn about billing setup
-            </a>
+const ApiKeyModal: React.FC<{ 
+    isOpen: boolean;
+    apiKeyInput: string;
+    setApiKeyInput: (key: string) => void;
+    onSave: () => void;
+}> = ({ isOpen, apiKeyInput, setApiKeyInput, onSave }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 selection:bg-cyan-500/30">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl shadow-2xl border-2 border-cyan-500/30 p-8 max-w-md w-full animate-in fade-in zoom-in duration-300">
+                <div className="text-center mb-6">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-600/20 rounded-full mb-4 shadow-xl">
+                        <svg className="h-8 w-8 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Enter Your API Key</h2>
+                    <p className="text-slate-400 text-sm leading-relaxed">Paste your Google Gemini API key below</p>
+                </div>
+                
+                <div className="space-y-4 mb-6">
+                    <div>
+                        <label className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-2 block">Gemini API Key</label>
+                        <input
+                            type="password"
+                            value={apiKeyInput}
+                            onChange={(e) => setApiKeyInput(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && onSave()}
+                            placeholder="AIzaSy..."
+                            className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all font-mono text-sm"
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                        <p className="text-xs text-slate-400 mb-2">📝 <span className="font-semibold">Don't have an API key?</span></p>
+                        <ol className="text-xs text-slate-400 space-y-1.5 ml-5 list-decimal">
+                            <li>Visit <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">Google AI Studio</a></li>
+                            <li>Create a new API key (free tier available)</li>
+                            <li>Copy and paste it above</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={onSave}
+                    disabled={!apiKeyInput.trim()}
+                    className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-black py-4 px-6 rounded-2xl transition-all shadow-xl hover:shadow-2xl hover:shadow-cyan-500/20 active:scale-[0.98] uppercase tracking-widest text-sm">
+                    Save & Continue
+                </button>
+
+                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Stored locally in your browser
+                </div>
+            </div>
         </div>
-    </div>
-);
+    );
+};
+
 
 
 const DragOverlay: React.FC = () => (
@@ -256,23 +353,125 @@ const ToggleSwitch: React.FC<{ label: string, description: string, checked: bool
     </div>
 );
 
+const TagCategoryManager: React.FC<{
+    categories: TagCategory[],
+    onChange: (categories: TagCategory[]) => void
+}> = ({ categories, onChange }) => {
+    const [newTag, setNewTag] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Service');
+
+    const addTag = () => {
+        if (!newTag.trim()) return;
+        const categoryIndex = categories.findIndex(c => c.category === selectedCategory);
+        if (categoryIndex >= 0) {
+            const updated = [...categories];
+            if (!updated[categoryIndex].tags.includes(newTag.trim())) {
+                updated[categoryIndex].tags.push(newTag.trim());
+                onChange(updated);
+            }
+        } else {
+            onChange([...categories, { category: selectedCategory, tags: [newTag.trim()] }]);
+        }
+        setNewTag('');
+    };
+
+    const removeTag = (category: string, tagToRemove: string) => {
+        const updated = categories.map(cat => {
+            if (cat.category === category) {
+                return { ...cat, tags: cat.tags.filter(t => t !== tagToRemove) };
+            }
+            return cat;
+        }).filter(cat => cat.tags.length > 0);
+        onChange(updated);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex gap-2">
+                <select 
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="flex-shrink-0 bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 text-[11px] text-white focus:outline-none"
+                >
+                    <option value="Service">Service</option>
+                    <option value="Product">Product</option>
+                    <option value="Location">Location</option>
+                    <option value="Industry">Industry</option>
+                    <option value="Feature">Feature</option>
+                </select>
+                <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addTag()}
+                    placeholder="Add tag..."
+                    className="flex-grow bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 text-[11px] text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                />
+                <button
+                    onClick={addTag}
+                    className="bg-cyan-600 hover:bg-cyan-500 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                >
+                    +
+                </button>
+            </div>
+            <div className="space-y-3">
+                {categories.map(cat => (
+                    <div key={cat.category} className="bg-slate-900/30 p-3 rounded-xl border border-slate-700/50">
+                        <div className="text-[9px] font-black text-cyan-400 uppercase tracking-widest mb-2">{cat.category}</div>
+                        <div className="flex flex-wrap gap-2">
+                            {cat.tags.map(tag => (
+                                <span key={tag} className="inline-flex items-center gap-1 bg-slate-700/50 px-2 py-1 rounded-lg text-[10px] text-slate-300">
+                                    {tag}
+                                    <button
+                                        onClick={() => removeTag(cat.category, tag)}
+                                        className="text-red-400 hover:text-red-300 ml-1"
+                                    >
+                                        ×
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+
 
 // --- Main App Component ---
 
 const App: React.FC = () => {
     const [apiKeyIsSet, setApiKeyIsSet] = useState<boolean | null>(null);
+    const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+    const [apiKeyInput, setApiKeyInput] = useState('');
     const [mode, setMode] = useState<AppMode>('tagger');
 
     // --- Global State ---
     const [businessName, setBusinessName] = useState<string>('Citywide Melbourne Appliance Repairs');
+    const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
+        name: 'Citywide Melbourne Appliance Repairs',
+        website: 'https://example.com',
+        phone: '',
+        address: ''
+    });
+    const [tagCategories, setTagCategories] = useState<TagCategory[]>([
+        { category: 'Service', tags: ['appliance repair', 'commercial repair', 'domestic repair'] },
+        { category: 'Location', tags: ['Melbourne', 'Victoria', 'Australia'] }
+    ]);
     const [options, setOptions] = useState<ProcessingOptions>({
         generateMetadata: true,
         enhanceImage: true,
         embedExif: true,
-        randomizeLocation: false
+        randomizeLocation: false,
+        useManualMetadata: false
     });
-    const [currentLocation, setCurrentLocation] = useState<GeoLocation>(PRESET_LOCATIONS[0]);
+    const [currentLocation, setCurrentLocation] = useState<GeoLocation>(DEFAULT_PRESET_LOCATIONS[0]);
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+    const [customPresets, setCustomPresets] = useState<GeoLocation[]>(DEFAULT_PRESET_LOCATIONS);
+    const [locationSearch, setLocationSearch] = useState('');
+    const [searchResults, setSearchResults] = useState<GeoLocation[]>([]);
 
     // --- Tagger State ---
     const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
@@ -288,25 +487,58 @@ const App: React.FC = () => {
     const [techAdderResult, setTechAdderResult] = useState<ProcessedImage | null>(null);
     const [isAddingTech, setIsAddingTech] = useState<boolean>(false);
 
-    // --- Composer State ---
-    const [composerImages, setComposerImages] = useState<File[]>([]);
-    const [composerPreviews, setComposerPreviews] = useState<string[]>([]);
-    const [composerResult, setComposerResult] = useState<ProcessedImage | null>(null);
-    const [isComposing, setIsComposing] = useState<boolean>(false);
+
 
     useEffect(() => {
-        const checkKey = async () => {
-            // @ts-ignore
-            const hasKey = await window.aistudio.hasSelectedApiKey();
-            setApiKeyIsSet(hasKey);
+        const checkKey = () => {
+            const storedKey = localStorage.getItem('GEMINI_API_KEY');
+            
+            // Validate that the stored key looks like a real API key
+            if (storedKey && storedKey.startsWith('AIza')) {
+                setApiKeyIsSet(true);
+            } else {
+                // Clear invalid key
+                if (storedKey) {
+                    console.warn('[App] Invalid API key detected, clearing:', storedKey.substring(0, 20));
+                    localStorage.removeItem('GEMINI_API_KEY');
+                }
+                setApiKeyIsSet(false);
+                setShowApiKeyModal(true);
+            }
         };
         checkKey();
     }, []);
 
-    const handleSelectKey = async () => {
-        // @ts-ignore
-        await window.aistudio.openSelectKey();
-        setApiKeyIsSet(true); // Assume success per instructions
+    const handleSaveApiKey = () => {
+        const trimmedKey = apiKeyInput.trim();
+        
+        // Validate API key format
+        if (trimmedKey.length === 0) {
+            alert('Please enter an API key');
+            return;
+        }
+        
+        if (!trimmedKey.startsWith('AIza')) {
+            alert('Invalid API key format. Google Gemini API keys should start with "AIza".\n\nPlease get your key from: https://aistudio.google.com/app/apikey');
+            return;
+        }
+        
+        if (trimmedKey.length < 30) {
+            alert('API key seems too short. Please check you copied the complete key.');
+            return;
+        }
+        
+        console.log('[App] Saving valid API key:', trimmedKey.substring(0, 10) + '...');
+        localStorage.setItem('GEMINI_API_KEY', trimmedKey);
+        setApiKeyIsSet(true);
+        setShowApiKeyModal(false);
+        setApiKeyInput('');
+    };
+
+    const handleClearApiKey = () => {
+        localStorage.removeItem('GEMINI_API_KEY');
+        setApiKeyIsSet(false);
+        setShowApiKeyModal(true);
     };
 
     const fetchBrowserLocation = () => {
@@ -325,13 +557,46 @@ const App: React.FC = () => {
         );
     };
 
+    const handleLocationSearch = (query: string) => {
+        setLocationSearch(query);
+        if (query.trim().length < 2) {
+            setSearchResults([]);
+            return;
+        }
+        
+        // Search through local database of Australian suburbs
+        const results = ALL_LOCATIONS.filter(loc =>
+            loc.name.toLowerCase().includes(query.toLowerCase()) ||
+            (loc.address && loc.address.toLowerCase().includes(query.toLowerCase()))
+        ).slice(0, 10); // Show top 10 matches
+        
+        setSearchResults(results);
+    };
+
+    const addLocationToPresets = (location: GeoLocation) => {
+        if (!customPresets.find(p => p.name === location.name)) {
+            setCustomPresets(prev => [...prev, location]);
+        }
+        setCurrentLocation(location);
+        setLocationSearch('');
+        setSearchResults([]);
+    };
+
+    const removeLocationFromPresets = (locationName: string) => {
+        setCustomPresets(prev => prev.filter(p => p.name !== locationName));
+        if (currentLocation.name === locationName && customPresets.length > 0) {
+            setCurrentLocation(customPresets[0]);
+        }
+    };
+
+
     const handleAddFiles = useCallback(async (files: File[]) => {
         const convertedFiles = await Promise.all(files.map(file => handleFileConversion(file)));
         const newImages: ProcessedImage[] = [];
 
         for (const file of convertedFiles) {
             const locationToUse = options.randomizeLocation
-                ? PRESET_LOCATIONS[Math.floor(Math.random() * PRESET_LOCATIONS.length)]
+                ? customPresets[Math.floor(Math.random() * customPresets.length)]
                 : { ...currentLocation };
 
             try {
@@ -367,7 +632,7 @@ const App: React.FC = () => {
             }
         }
         setProcessedImages(prev => [...prev, ...newImages]);
-    }, [options, currentLocation]);
+    }, [options, currentLocation, companyInfo, tagCategories, customPresets]);
 
     const processSingleImage = useCallback(async (id: string) => {
         const imageIndex = processedImages.findIndex(img => img.id === id);
@@ -387,6 +652,30 @@ const App: React.FC = () => {
             if (currentOptions.generateMetadata) {
                 setProcessedImages(prev => prev.map(img => img.id === id ? { ...img, status: 'generating', statusText: 'AI Analyzing...' } : img));
                 activeMetadata = await generateImageMetadata(imageFile, businessName);
+                
+                // Merge with manual inputs if enabled
+                if (currentOptions.useManualMetadata) {
+                    // Add website from company info
+                    if (companyInfo.website) {
+                        activeMetadata.website = companyInfo.website;
+                    }
+                    
+                    // Merge custom tags with AI-generated tags
+                    const customTags: string[] = [];
+                    tagCategories.forEach(cat => {
+                        customTags.push(...cat.tags);
+                    });
+                    
+                    // Combine and deduplicate tags
+                    const allTags = [...new Set([...activeMetadata.tags, ...customTags])];
+                    activeMetadata.tags = allTags;
+                    
+                    // Include company NAP info if provided
+                    const napTags: string[] = [];
+                    if (companyInfo.phone) napTags.push(companyInfo.phone);
+                    if (companyInfo.address) napTags.push(companyInfo.address);
+                    activeMetadata.tags = [...new Set([...activeMetadata.tags, ...napTags])];
+                }
             } else {
                 activeMetadata = {
                     name: imageFile.name.replace(/\.[^/.]+$/, ""),
@@ -555,26 +844,7 @@ const App: React.FC = () => {
         }
     };
 
-    const handleComposerFileChange = async (files: File[] | null) => {
-        if (!files) return;
-        const validatedFiles: File[] = [];
-        const validatedPreviews: string[] = [];
 
-        for (const file of files) {
-            try {
-                // No validation - accept all image sizes
-                const convertedFile = await handleFileConversion(file);
-                validatedFiles.push(convertedFile);
-                validatedPreviews.push(URL.createObjectURL(convertedFile));
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : "Image validation failed.";
-                alert(`Could not add image '${file.name}': ${errorMessage}`);
-            }
-        }
-        setComposerImages(prev => [...prev, ...validatedFiles]);
-        setComposerPreviews(prev => [...prev, ...validatedPreviews]);
-        setComposerResult(null);
-    };
 
     const handleAddTechAndProcess = async () => {
         if (!techAdderBaseImage || !techAdderTechImage) return;
@@ -609,7 +879,7 @@ const App: React.FC = () => {
             const file = new File([blob], 'composite_scene.png', { type: mimeType });
             
             const locationToUse = options.randomizeLocation 
-                ? PRESET_LOCATIONS[Math.floor(Math.random() * PRESET_LOCATIONS.length)]
+                ? customPresets[Math.floor(Math.random() * customPresets.length)]
                 : { ...currentLocation };
 
             setTechAdderResult(prev => ({ 
@@ -644,96 +914,7 @@ const App: React.FC = () => {
         }
     };
 
-    const handleComposeAndProcess = async (layoutPrompt: string, aspectRatio: number) => {
-        if (composerImages.length === 0) return;
-        
-        const id = composerResult?.id || `composed-${Date.now()}`;
-        setIsComposing(true);
 
-        setComposerResult({ 
-            id, 
-            file: composerImages[0], 
-            previewUrl: composerPreviews[0], 
-            status: 'generating', 
-            statusText: 'AI Composing...', 
-            metadata: null, 
-            enhancedImage: null, 
-            finalImageBlob: null, 
-            error: null, 
-            appliedOptions: options, 
-            appliedLocation: currentLocation 
-        });
-
-        try {
-            let blob: Blob;
-            let mimeType: string;
-            let base64: string;
-
-            if (composerImages.length === 1) {
-                // If only one image, don't call AI, just use it directly
-                blob = composerImages[0];
-                mimeType = composerImages[0].type;
-                base64 = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-                    reader.readAsDataURL(blob);
-                });
-            } else {
-                const result = await composeImages(composerImages, layoutPrompt);
-                base64 = result.base64;
-                mimeType = result.mimeType;
-                blob = await (await fetch(`data:${mimeType};base64,${base64}`)).blob();
-            }
-
-            let enhancedImageUrl = `data:${mimeType};base64,${base64}`;
-            let fileType = mimeType;
-            let fileName = 'composed_image.png';
-
-            if (aspectRatio > 0) {
-                blob = await resizeImage(blob, aspectRatio);
-                enhancedImageUrl = await convertBlobToJpegDataURL(blob);
-                fileType = 'image/jpeg';
-                fileName = 'composed_image.jpeg';
-            }
-
-            // No validation - accept all image sizes
-            const file = new File([blob], fileName, { type: fileType });
-            
-            const locationToUse = options.randomizeLocation 
-                ? PRESET_LOCATIONS[Math.floor(Math.random() * PRESET_LOCATIONS.length)]
-                : { ...currentLocation };
-
-            setComposerResult(prev => ({ 
-                ...prev!,
-                file, 
-                previewUrl: URL.createObjectURL(file), 
-                status: 'generating', 
-                statusText: 'Metadata Gen...', 
-                enhancedImage: enhancedImageUrl, 
-                appliedLocation: locationToUse 
-            }));
-            
-            const metadata = await generateImageMetadata(file, businessName);
-            setComposerResult(prev => prev ? { ...prev, metadata, status: 'ready', statusText: 'Composed', finalImageBlob: blob } : null);
-        } catch (err) { 
-            const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-            setComposerResult(prev => {
-                const base = prev || {
-                    id,
-                    file: composerImages[0],
-                    previewUrl: composerPreviews[0],
-                    metadata: null,
-                    enhancedImage: null,
-                    finalImageBlob: null,
-                    appliedOptions: options,
-                    appliedLocation: currentLocation
-                };
-                return { ...base, status: 'error', statusText: 'Error', error: errorMessage };
-            });
-        } finally { 
-            setIsComposing(false); 
-        }
-    };
 
     const handleTechAdderDownload = async () => {
         if (!techAdderResult || !techAdderResult.metadata) return;
@@ -753,29 +934,18 @@ const App: React.FC = () => {
         }
     };
 
-    const handleComposerDownload = async () => {
-        if (!composerResult || !composerResult.metadata) return;
-        setIsDownloading(composerResult.id);
-        try {
-            const blob = composerResult.finalImageBlob || (composerResult.enhancedImage ? await (await fetch(composerResult.enhancedImage)).blob() : composerResult.file);
-            const final = await embedMetadata(blob, composerResult.metadata, businessName, composerResult.appliedLocation);
-            const url = URL.createObjectURL(final);
-            const a = document.createElement('a');
-            a.href = url;
-            const cleanFilename = slugify(composerResult.metadata.name) || 'composed-seo';
-            a.download = `${cleanFilename}.jpeg`;
-            a.click();
-            URL.revokeObjectURL(url);
-        } finally {
-            setIsDownloading(null);
-        }
-    };
 
-    if (apiKeyIsSet === false) return <ApiKeyOverlay onSelectKey={handleSelectKey} />;
+
     if (apiKeyIsSet === null) return null;
 
     return (
         <div className="app-root selection:bg-cyan-500/30">
+            <ApiKeyModal 
+                isOpen={showApiKeyModal} 
+                apiKeyInput={apiKeyInput} 
+                setApiKeyInput={setApiKeyInput} 
+                onSave={handleSaveApiKey} 
+            />
             {globalDragActive && <DragOverlay />}
             <div className="min-h-screen bg-slate-900 text-white p-4 sm:p-8 lg:p-12 font-sans relative overflow-x-hidden">
                 <div className="max-w-5xl mx-auto">
@@ -785,14 +955,32 @@ const App: React.FC = () => {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
                             </span>
-                            Asset Intelligence 3.0
+                            SEO Metadata Tool
                         </div>
-                        <h1 className="text-7xl font-black text-white tracking-tighter uppercase italic leading-[0.85] mb-2">
-                            Asset <span className="text-cyan-500 text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-cyan-700">Master</span>
-                        </h1>
-                        <p className="text-slate-500 mt-2 text-sm font-black uppercase tracking-[0.4em]">Geo-Targeted Bulk SEO Tagger</p>
-                    </header>
 
+                        <h1 className="text-6xl sm:text-7xl font-black mb-4 tracking-tight leading-none relative inline-block">
+                            <span className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                                AI Image Tagger
+                            </span>
+                        </h1>
+                        <p className="text-slate-400 text-lg font-medium max-w-xl mx-auto">
+                            Professional SEO metadata generation for image libraries
+                        </p>
+
+                        {/* API Key Settings Button */}
+                        <div className="absolute top-0 right-0">
+                            <button
+                                onClick={() => setShowApiKeyModal(true)}
+                                className="flex items-center gap-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-semibold transition-all border border-slate-700 hover:border-cyan-600/50"
+                                title="Manage API Key"
+                            >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                </svg>
+                                <span>API Key</span>
+                            </button>
+                        </div>
+                    </header>
                     <div className="bg-slate-800/40 backdrop-blur-xl rounded-[2.5rem] p-1.5 mb-10 border border-slate-700/50 flex shadow-2xl">
                         <button onClick={() => setMode('tagger')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black transition-all text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 ${mode === 'tagger' ? 'bg-cyan-600 text-white shadow-xl shadow-cyan-900/40' : 'text-slate-500 hover:text-slate-300'}`}>
                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
@@ -802,10 +990,7 @@ const App: React.FC = () => {
                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
                              Tech Synthesis
                         </button>
-                        <button onClick={() => setMode('composer')} className={`flex-1 py-4 px-6 rounded-[2rem] font-black transition-all text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 ${mode === 'composer' ? 'bg-cyan-600 text-white shadow-xl shadow-cyan-900/40' : 'text-slate-500 hover:text-slate-300'}`}>
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" /></svg>
-                            Image Composer
-                        </button>
+
                     </div>
 
                     <main className="bg-slate-800/20 rounded-[3rem] p-8 sm:p-10 border border-slate-800 shadow-[0_0_100px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-md">
@@ -813,41 +998,101 @@ const App: React.FC = () => {
                         <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-cyan-600/5 blur-[120px] pointer-events-none"></div>
                         
                         {/* Global Controls - Shared across all modes */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                             <div className="bg-slate-800/60 p-5 rounded-3xl border border-slate-700/50 shadow-sm relative z-10">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 flex items-center gap-2">
                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                     Branding
+                                     Company Information
                                 </h3>
-                                <div className="space-y-1">
-                                    <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest ml-1">Company Entity</label>
-                                    <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)}
-                                        className="block w-full bg-slate-900/50 border border-slate-700 rounded-2xl py-2.5 px-4 focus:ring-2 focus:ring-cyan-500/20 text-sm text-white transition-all shadow-inner"
-                                        placeholder="Enter business name..." />
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest ml-1">Company Name</label>
+                                        <input type="text" value={companyInfo.name} onChange={(e) => setCompanyInfo({...companyInfo, name: e.target.value})}
+                                            className="block w-full bg-slate-900/50 border border-slate-700 rounded-2xl py-2.5 px-4 focus:ring-2 focus:ring-cyan-500/20 text-sm text-white transition-all shadow-inner"
+                                            placeholder="Enter company name..." />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest ml-1">Website URL</label>
+                                        <input type="url" value={companyInfo.website} onChange={(e) => setCompanyInfo({...companyInfo, website: e.target.value})}
+                                            className="block w-full bg-slate-900/50 border border-slate-700 rounded-2xl py-2.5 px-4 focus:ring-2 focus:ring-cyan-500/20 text-sm text-white transition-all shadow-inner"
+                                            placeholder="https://example.com" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest ml-1">Phone</label>
+                                            <input type="tel" value={companyInfo.phone || ''} onChange={(e) => setCompanyInfo({...companyInfo, phone: e.target.value})}
+                                                className="block w-full bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 focus:ring-2 focus:ring-cyan-500/20 text-xs text-white transition-all shadow-inner"
+                                                placeholder="Optional" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest ml-1">Address</label>
+                                            <input type="text" value={companyInfo.address || ''} onChange={(e) => setCompanyInfo({...companyInfo, address: e.target.value})}
+                                                className="block w-full bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 focus:ring-2 focus:ring-cyan-500/20 text-xs text-white transition-all shadow-inner"
+                                                placeholder="Optional" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             
+                            <div className="bg-slate-800/60 p-5 rounded-3xl border border-slate-700/50 shadow-sm relative z-10">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 flex items-center gap-2">
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                                    Custom Tag Categories
+                                </h3>
+                                <TagCategoryManager categories={tagCategories} onChange={setTagCategories} />
+                            </div>
+
                             <div className="bg-slate-800/60 p-5 rounded-3xl border border-slate-700/50 shadow-sm relative z-10">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 flex items-center gap-2">
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                     GEO Hub
                                 </h3>
                                 <div className="space-y-3">
+                                    {/* Search for new locations */}
+                                    <div className="relative">
+                                        <label className="text-[9px] text-slate-500 uppercase font-black tracking-widest ml-1 mb-1 block">Search Suburbs</label>
+                                        <input
+                                            type="text"
+                                            value={locationSearch}
+                                            onChange={(e) => handleLocationSearch(e.target.value)}
+                                            placeholder="Type suburb or state..."
+                                            className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 text-[11px] text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                                            disabled={options.randomizeLocation}
+                                        />
+                                        {searchResults.length > 0 && (
+                                            <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto z-50">
+                                                {searchResults.map(loc => (
+                                                    <button
+                                                        key={loc.name}
+                                                        onClick={() => addLocationToPresets(loc)}
+                                                        className="w-full text-left px-3 py-2 hover:bg-cyan-600/20 transition-colors border-b border-slate-700/50 last:border-0"
+                                                    >
+                                                        <div className="text-[11px] text-white font-semibold">{loc.name}</div>
+                                                        <div className="text-[9px] text-slate-400">{loc.address}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Current preset selector */}
                                     <div className="flex gap-2">
                                         <select className="flex-grow bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 text-[11px] text-white focus:outline-none appearance-none cursor-pointer"
                                             value={currentLocation.name}
                                             disabled={options.randomizeLocation}
                                             onChange={(e) => {
-                                                const loc = PRESET_LOCATIONS.find(l => l.name === e.target.value);
+                                                const loc = customPresets.find(l => l.name === e.target.value);
                                                 if (loc) setCurrentLocation(loc);
                                             }}>
-                                            {PRESET_LOCATIONS.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}
+                                            {customPresets.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}
                                         </select>
                                         <button onClick={fetchBrowserLocation} disabled={isFetchingLocation || options.randomizeLocation}
                                             className="bg-cyan-600 hover:bg-cyan-500 p-2.5 rounded-xl disabled:bg-slate-800 transition-all shadow-lg active:scale-95" title="Fetch Live GPS">
                                             <svg className={`h-4 w-4 ${isFetchingLocation ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
                                         </button>
                                     </div>
+
+                                    {/* Lat/Lng display */}
                                     <div className={`flex gap-2 transition-opacity ${options.randomizeLocation ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
                                         <div className="relative w-1/2">
                                             <input type="number" step="0.000001" value={currentLocation.lat} onChange={e => setCurrentLocation({...currentLocation, lat: parseFloat(e.target.value), name: 'Manual'})} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 text-[10px] text-slate-300 font-mono" placeholder="LAT" />
@@ -856,17 +1101,41 @@ const App: React.FC = () => {
                                             <input type="number" step="0.000001" value={currentLocation.lng} onChange={e => setCurrentLocation({...currentLocation, lng: parseFloat(e.target.value), name: 'Manual'})} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-2 px-3 text-[10px] text-slate-300 font-mono" placeholder="LNG" />
                                         </div>
                                     </div>
+
+                                    {/* Custom presets list */}
+                                    {customPresets.length > 0 && (
+                                        <div className="bg-slate-900/30 p-3 rounded-xl border border-slate-700/50 max-h-48 overflow-y-auto">
+                                            <div className="text-[9px] font-black text-cyan-400 uppercase tracking-widest mb-2">My Locations ({customPresets.length})</div>
+                                            <div className="space-y-1">
+                                                {customPresets.map(preset => (
+                                                    <div key={preset.name} className="flex items-center justify-between bg-slate-800/50 px-2 py-1.5 rounded-lg group hover:bg-slate-700/50 transition-colors">
+                                                        <span className="text-[10px] text-slate-300">{preset.name}</span>
+                                                        {customPresets.length > 1 && (
+                                                            <button
+                                                                onClick={() => removeLocationFromPresets(preset.name)}
+                                                                className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                title="Remove"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="bg-slate-800/60 p-5 rounded-3xl border border-slate-700/50 shadow-sm relative z-10">
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 flex items-center gap-2">
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6V4m0 2a2 2 0 100 4" /></svg>
-                                    Engines
+                                    Processing Options
                                 </h3>
                                 <div className="space-y-2">
                                     <ToggleSwitch label="AI Meta" description="SEO-tuned data" checked={options.generateMetadata} onChange={(val) => setOptions(prev => ({ ...prev, generateMetadata: val }))} />
                                     <ToggleSwitch label="Auto-GPS" description="Bulk shuffle" checked={options.randomizeLocation} onChange={(val) => setOptions(prev => ({ ...prev, randomizeLocation: val }))} />
+                                    <ToggleSwitch label="Manual Override" description="Use custom tags" checked={options.useManualMetadata} onChange={(val) => setOptions(prev => ({ ...prev, useManualMetadata: val }))} />
                                 </div>
                             </div>
                         </div>
@@ -898,61 +1167,6 @@ const App: React.FC = () => {
                                         <ImageCard key={image.id} image={image} onMetadataChange={handleMetadataChange} onDownload={handleDownload} isDownloading={isDownloading} onRetry={() => processSingleImage(image.id)}/>
                                     ))}
                                 </div>
-                            </div>
-                        ) : mode === 'composer' ? (
-                            <div className="composer-view space-y-8 animate-in fade-in duration-500">
-                                <div className="uploader-container">
-                                    <Uploader onFilesAdded={handleComposerFileChange} dragActive={localDragActive} setDragActive={setLocalDragActive} setGlobalDragActive={setGlobalDragActive} />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <input type="text" id="layout-prompt" placeholder="E.g., 'A 2x2 grid of the images'" className="w-full bg-slate-900/50 border border-slate-700 rounded-2xl py-2.5 px-4 focus:ring-2 focus:ring-cyan-500/20 text-sm text-white transition-all shadow-inner" />
-                                    <select id="aspect-ratio" className="w-full bg-slate-900/50 border border-slate-700 rounded-2xl py-2.5 px-4 focus:ring-2 focus:ring-cyan-500/20 text-sm text-white transition-all shadow-inner appearance-none">
-                                        <option value="0">Original</option>
-                                        <option value="1.7777777778">16:9</option>
-                                        <option value="1">1:1 (Square)</option>
-                                        <option value="1.91">1.91:1 (Social Media)</option>
-                                        <option value="0.8">4:5 (Portrait)</option>
-                                    </select>
-                                </div>
-                                <div className="text-center">
-                                    <button onClick={() => {
-                                        const prompt = (document.getElementById('layout-prompt') as HTMLInputElement).value;
-                                        const ratio = parseFloat((document.getElementById('aspect-ratio') as HTMLSelectElement).value);
-                                        handleComposeAndProcess(prompt, ratio);
-                                    }} disabled={composerImages.length === 0 || isComposing}
-                                        className="w-full max-w-sm bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 text-white font-black py-4 px-8 rounded-3xl transition-all shadow-2xl shadow-cyan-900/30 uppercase tracking-[0.2em] text-xs active:scale-95">
-                                        {isComposing ? (
-                                            <span className="flex items-center justify-center gap-3">
-                                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                AI Composing...
-                                            </span>
-                                        ) : 'Compose Images'}
-                                    </button>
-                                </div>
-                                {composerPreviews.length > 0 && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        {composerPreviews.map((preview, index) => (
-                                            <img key={index} src={preview} alt={`preview-${index}`} className="w-full h-auto rounded-lg" />
-                                        ))}
-                                    </div>
-                                )}
-                                {composerResult && (
-                                    <div className="mt-12 border-t border-slate-700/50 pt-12">
-                                        <ImageCard
-                                            image={composerResult}
-                                            onMetadataChange={(id, meta) => setComposerResult(prev => prev ? { ...prev, metadata: meta } : null)}
-                                            onDownload={handleComposerDownload}
-                                            isDownloading={isDownloading}
-                                            onRetry={() => {
-                                                const prompt = (document.getElementById('layout-prompt') as HTMLInputElement).value;
-                                                const ratio = parseFloat((document.getElementById('aspect-ratio') as HTMLSelectElement).value);
-                                                handleComposeAndProcess(prompt, ratio);
-                                            }}
-                                            showRetry={true}
-                                            isRetrying={isComposing}
-                                        />
-                                    </div>
-                                )}
                             </div>
                         ) : (
                             <div className="tech-adder-view space-y-8 animate-in fade-in duration-500">

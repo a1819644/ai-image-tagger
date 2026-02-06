@@ -48,18 +48,3 @@ This feature allows you to realistically place a technician into a scene with an
     *   It will then treat the newly generated composite as a new image and generate SEO metadata for it.
 7.  **Review and Download:** The final image will appear in a card below, just like in the Bulk Tagger. You can edit its metadata and click **Download SEO Master** to save it.
 
----
-
-## 4. Feature: Image Composer
-
-This feature allows you to combine multiple images into a single picture based on a text prompt.
-
-### Workflow:
-
-1.  **Select Mode:** Click the **Image Composer** tab.
-2.  **Upload Images:** Drag and drop all the images you want to include in the composition.
-3.  **Provide Layout Instructions:**
-    *   In the text box, describe how you want the images arranged (e.g., `"A 2x2 grid of the images"`, `"A collage with the first image on the left and the other two stacked on the right"`).
-    *   Use the dropdown to select a final aspect ratio for the composed image (e.g., 16:9, 1:1 Square).
-4.  **Generate Image:** Click the **Compose Images** button.
-5.  **Review and Download:** The final composed image will appear in a card below. You can edit its metadata and download it.
