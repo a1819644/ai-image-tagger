@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Image Tagger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/piexifjs/1.0.6/piexif.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.4/heic2any.min.js"></script>
+
+  <script>
+    // Mock window.aistudio for local development
+    window.aistudio = {
+      hasSelectedApiKey: async () => true,
+      openSelectKey: async () => {
+        console.log('Mock: API key selection opened');
+        return true;
+      },
+      getSelectedApiKey: async () => {
+        // For actual API calls, use your VITE_GEMINI_API_KEY from .env.local
+        return 'mock-api-key';
+      }
+    };
+  </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.23.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "jszip": "https://aistudiocdn.com/jszip@^3.10.1"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/ai-image-tagger/assets/index-BQt-x2Bn.js"></script>
+  <link rel="stylesheet" crossorigin href="/ai-image-tagger/assets/index-CDX7vLVy.css">
+</head>
+
+<body class="bg-slate-900 text-white">
+  <div id="root"></div>
+</body>
+
+</html>
