@@ -254,7 +254,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For issues, questions, or feature requests:
 - Open an issue on [GitHub](https://github.com/yourusername/ai-image-tagger/issues)
-- Email: your.email@example.com
+- Email: anoop.thekumar2@gmail.com
 
 ---
 
