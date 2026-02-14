@@ -5,7 +5,7 @@
 ![AI Image Tagger](https://img.shields.io/badge/AI-Powered-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![React](https://img.shields.io/badge/React-18-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 
 ---
-
+### CHECK OUT THE LIVE PROJECT - ([AI IMAGE TAGGER](https://a1819644.github.io/ai-image-tagger/))
 ## 🎯 Features
 
 ### **Bulk SEO Tagger**
