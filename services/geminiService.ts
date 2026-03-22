@@ -24,8 +24,11 @@ const callGeminiApi = async (model: string, contents: any, config: any = {}) => 
   // Debug: Log API key presence (not the actual key for security)
   console.log('[Gemini Service] API Key loaded:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING');
 
-  // In local development, we use the proxy defined in vite.config.ts
-  const baseUrl = '/api-proxy';
+  // In local development, use the Vite proxy (vite.config.ts) to avoid CORS issues.
+  // In production (e.g. GitHub Pages), call the API directly — Google supports browser CORS.
+  const baseUrl = import.meta.env.DEV
+    ? '/api-proxy'
+    : 'https://generativelanguage.googleapis.com';
   const url = `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   console.log('[Gemini Service] Calling API:', model);
